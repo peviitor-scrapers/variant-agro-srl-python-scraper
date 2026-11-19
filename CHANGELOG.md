@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- jobRapid as a second source: company-name search, JSON-LD `JobPosting`
+  parsing (title, location, salary, posting date) and URL deduplication
+  against ANOFM. Each jobRapid URL is published as a distinct job (#1).
+- Live URL validation now also covers jobRapid detail pages (#1).
 - Job mappings from ANOFM include salary, standardized tags, work mode and
   expiry date, while excluding descriptions and personal contact data (#1).
 - ANOFM job mapping embedded in `scraper/index.py`, with unit coverage for
@@ -14,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Company identity, CIF and repository links set to VARIANT AGRO S.R.L. (#1).
+- Source identifier is now `mediere.anofm.ro, jobrapid.ro`; README and
+  generated `docs/jobs.md` describe both sources (#1).
 
 ## [1.0.0] - 2026-08-03
 

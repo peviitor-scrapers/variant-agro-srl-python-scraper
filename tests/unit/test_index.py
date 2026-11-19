@@ -70,6 +70,7 @@ def _stub_main(monkeypatch, tmp_path, raw_jobs):
     monkeypatch.setattr(index, "validate_and_get_company", lambda: {
         "company": "VARIANT AGRO S.R.L.", "cif": "41873878", "address": "TÂRGU JIU"})
     monkeypatch.setattr(index, "search_anofm_jobs", lambda cif: raw_jobs)
+    monkeypatch.setattr(index, "search_jobrapid", lambda company: [])
     monkeypatch.setattr(index, "drop_dead_urls", lambda jobs: jobs)
     return tmp_path
 
@@ -254,3 +255,71 @@ def test_tags_are_lowercase_without_diacritics_and_capped():
     assert index._tags(row) == ["scoala-profesionala"]
     many = {field: f"tag {i}" for i, field in enumerate(index.TAG_SOURCE_FIELDS)}
     assert len(index._tags(many)) <= 20
+
+
+def test_jobrapid_salary_range_and_single():
+    base = {"currency": "RON", "value": {"minValue": 3250, "maxValue": 4000}}
+    assert index._jobrapid_salary(base) == "3250-4000 RON"
+    assert index._jobrapid_salary({"currency": "EUR", "value": {"maxValue": 100}}) == "100 EUR"
+    assert index._jobrapid_salary(None) is None
+
+
+def test_parse_jobrapid_posting_extracts_fields():
+    posting = {
+        "@type": "JobPosting",
+        "url": "https://www.jobrapid.ro/locuri-de-munca/sudor-in-targu-jiu-1732973.html",
+        "title": "Sudor",
+        "datePosted": "2026-11-13T14:36:03+02:00",
+        "baseSalary": {"currency": "RON", "value": {"minValue": 4000, "maxValue": 5000}},
+        "jobLocation": {"address": {"addressLocality": "Târgu Jiu", "addressRegion": "Gorj"}},
+    }
+    page = f'<script type="application/ld+json">{json.dumps(posting)}</script>'
+    job = index.parse_jobrapid_posting(page, "https://www.jobrapid.ro/fallback")
+
+    assert job["url"].endswith("1732973.html")
+    assert job["title"] == "Sudor"
+    assert job["location"] == ["Târgu Jiu"]
+    assert job["salary"] == "4000-5000 RON"
+    assert job["date"] == "2026-11-13T12:36:03Z"
+
+
+def test_search_jobrapid_filters_by_company_and_fetches_details(mock_post, mock_get):
+    def card(company, href):
+        return (f'<div class="container_lista_continut" '
+                f'data-company="{company}" data-href="{href}"></div>')
+
+    mock_post.return_value.text = (
+        card("Variant Agro SRL", "/locuri-de-munca/a.html")
+        + card("Other Firm SRL", "/locuri-de-munca/b.html")
+    )
+    posting = {
+        "@type": "JobPosting",
+        "url": "https://www.jobrapid.ro/locuri-de-munca/a.html",
+        "title": "Sudor",
+    }
+    mock_get.return_value.text = f'<script type="application/ld+json">{json.dumps(posting)}</script>'
+
+    jobs = index.search_jobrapid("Variant Agro")
+
+    assert len(jobs) == 1
+    assert jobs[0]["url"].endswith("/a.html")
+    assert mock_get.call_count == 1
+
+
+def test_main_includes_jobrapid_jobs_and_dedupes_by_url(tmp_path, monkeypatch):
+    anofm = [{"url": "https://mediere.anofm.ro/app/module/mediere/job/1", "title": "SUDOR"}]
+    jobrapid = [
+        {"url": "https://www.jobrapid.ro/locuri-de-munca/sudor-in-targu-jiu-1732973.html",
+         "title": "Sudor", "salary": "4000-5000 RON"},
+        {"url": "https://mediere.anofm.ro/app/module/mediere/job/1", "title": "duplicate"},
+    ]
+    root = _stub_main(monkeypatch, tmp_path, anofm)
+    monkeypatch.setattr(index, "search_jobrapid", lambda company: jobrapid)
+
+    index.main(root=root)
+
+    data = json.loads((tmp_path / "scraper" / "jobs.json").read_text(encoding="utf-8"))
+    assert len(data["jobs"]) == 2
+    urls = [job["url"] for job in data["jobs"]]
+    assert len(set(urls)) == 2
+    assert any("jobrapid.ro" in url for url in urls)

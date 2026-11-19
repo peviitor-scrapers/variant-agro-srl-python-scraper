@@ -1,16 +1,19 @@
 """
-VARIANT AGRO S.R.L. ANOFM Scraper
+VARIANT AGRO S.R.L. ANOFM + jobRapid Scraper
 
 Collects job postings published by VARIANT AGRO S.R.L. (CUI 41873878) on ANOFM
-(mediere.anofm.ro) and publishes them to peviitor.ro via the v1 API.
+(mediere.anofm.ro) and jobRapid (www.jobrapid.ro), then publishes them to
+peviitor.ro via the v1 API. Postings with distinct URLs are distinct jobs.
 """
 
 import datetime
+import html
 import json
 import pathlib
 import re
 import sys
 import unicodedata
+from urllib.parse import urljoin
 
 import requests
 
@@ -33,6 +36,19 @@ JOB_URL_TEMPLATE = "https://mediere.anofm.ro/app/module/mediere/job/{id}"
 ANOFM_HEADERS = {"User-Agent": "job_seeker_ro_spider", "Content-Type": "application/json"}
 ANOFM_TIMEOUT = 10
 ROW_COUNT = 250
+
+JOBRAPID_BASE_URL = "https://www.jobrapid.ro"
+JOBRAPID_SEARCH_URL = f"{JOBRAPID_BASE_URL}/angajare"
+JOBRAPID_HEADERS = {"User-Agent": "job_seeker_ro_spider"}
+JOBRAPID_TIMEOUT = 15
+JOBRAPID_JOB_PREFIX = f"{JOBRAPID_BASE_URL}/locuri-de-munca/"
+_CARD_RE = re.compile(r"<div class=['\"]container_lista_continut[^'\"]*['\"]([^>]*)>", re.S)
+_COMPANY_RE = re.compile(r"data-company=['\"]([^'\"]*)['\"]")
+_HREF_RE = re.compile(r"data-href=['\"]([^'\"]*)['\"]")
+_JSONLD_RE = re.compile(
+    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    re.S | re.I,
+)
 
 TAG_SOURCE_FIELDS = (
     "job_domain_name",
@@ -153,6 +169,115 @@ def search_anofm_jobs(cif, row_count=ROW_COUNT):
     return jobs
 
 
+def _normalize_company_name(name):
+    cleaned = re.sub(r"[^a-z0-9]+", " ", (name or "").casefold())
+    tokens = [t for t in cleaned.split() if t not in {"srl", "sa", "s", "r", "l"}]
+    return " ".join(tokens)
+
+
+def _to_utc_iso(value):
+    if not value:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _jobrapid_salary(base_salary):
+    if not isinstance(base_salary, dict):
+        return None
+    currency = base_salary.get("currency") or "RON"
+    value = base_salary.get("value")
+    if not isinstance(value, dict):
+        return None
+    minimum, maximum = value.get("minValue"), value.get("maxValue")
+    if minimum is None and maximum is None:
+        return None
+    if minimum is not None and maximum is not None and str(minimum) != str(maximum):
+        return f"{int(float(minimum))}-{int(float(maximum))} {currency}"
+    amount = maximum if maximum is not None else minimum
+    return f"{int(float(amount))} {currency}"
+
+
+def parse_jobrapid_posting(page_html, url):
+    """Extracts a job dict from the JobPosting JSON-LD block of a detail page."""
+    for match in _JSONLD_RE.finditer(page_html or ""):
+        try:
+            data = json.loads(match.group(1))
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(data, dict) or data.get("@type") != "JobPosting":
+            continue
+
+        title = _clean(data.get("title"))
+        if len(title) < 3:
+            continue
+        job = {"url": data.get("url") or url, "title": title[:200]}
+        address = ((data.get("jobLocation") or {}).get("address") or {})
+        locality = _clean(address.get("addressLocality"))
+        region = _clean(address.get("addressRegion"))
+        if locality:
+            job["location"] = [locality]
+        elif region:
+            job["location"] = [region]
+        posted = _to_utc_iso(data.get("datePosted"))
+        if posted:
+            job["date"] = posted
+        salary = _jobrapid_salary(data.get("baseSalary"))
+        if salary:
+            job["salary"] = salary
+        return job
+    return None
+
+
+def search_jobrapid(company_name):
+    """Searches jobRapid.ro by company name and returns its job postings.
+
+    Each posting has its own URL, so mirrors of ANOFM offers are kept as
+    distinct jobs (peviitor identifies jobs by their unique URL).
+    """
+    jobs = []
+    try:
+        print(f"Searching jobRapid by company: {company_name}")
+        res = requests.post(
+            JOBRAPID_SEARCH_URL,
+            data={"key": company_name},
+            headers=JOBRAPID_HEADERS,
+            timeout=JOBRAPID_TIMEOUT,
+        )
+        res.raise_for_status()
+    except Exception as err:
+        print(f"  jobRapid error: {err}")
+        return jobs
+
+    for match in _CARD_RE.finditer(res.text):
+        attrs = match.group(1)
+        company_match = _COMPANY_RE.search(attrs)
+        href_match = _HREF_RE.search(attrs)
+        if not company_match or not href_match:
+            continue
+        if _normalize_company_name(html.unescape(company_match.group(1))) != \
+                _normalize_company_name(company_name):
+            continue
+        url = urljoin(JOBRAPID_BASE_URL + "/", html.unescape(href_match.group(1)))
+        try:
+            detail = requests.get(url, headers=JOBRAPID_HEADERS, timeout=JOBRAPID_TIMEOUT)
+            detail.raise_for_status()
+        except Exception as err:
+            print(f"  jobRapid detail error for {url}: {err}")
+            continue
+        job = parse_jobrapid_posting(detail.text, url)
+        if job and job["url"] not in {known["url"] for known in jobs}:
+            jobs.append(job)
+
+    print(f"  Found {len(jobs)} jobs on jobRapid")
+    return jobs
+
+
 def map_to_job_model(raw_job, cif, company_name=None):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     job = {
@@ -219,26 +344,31 @@ def main(root=None):
     existing_result = query_solr(COMPANY_CIF)
     existing_count = existing_result["numFound"]
     existing_urls = {doc.get("url") for doc in existing_result["docs"]
-                     if doc.get("url") and doc["url"].startswith(JOB_DETAILS_PREFIX)}
-    print(f"Found {existing_count} existing jobs in SOLR ({len(existing_urls)} from ANOFM)")
+                     if doc.get("url") and (doc["url"].startswith(JOB_DETAILS_PREFIX)
+                                            or doc["url"].startswith(JOBRAPID_JOB_PREFIX))}
+    print(f"Found {existing_count} existing jobs in SOLR ({len(existing_urls)} from ANOFM/jobRapid)")
 
     print("=== Step 2: Validate company via CUIScan/CUIFirma ===")
     validated = _validated_company()
     global COMPANY_NAME
     COMPANY_NAME = validated["company"]
 
-    print("=== Step 3: Scrape VARIANT AGRO S.R.L. jobs from ANOFM ===")
+    print("=== Step 3: Scrape VARIANT AGRO S.R.L. jobs from ANOFM + jobRapid ===")
     raw_jobs = []
     known_urls = set()
     for job in search_anofm_jobs(validated["cif"]):
         if job["url"] not in known_urls:
             raw_jobs.append(job)
             known_urls.add(job["url"])
-    print(f"Jobs scraped from ANOFM: {len(raw_jobs)}")
+    for job in search_jobrapid(validated["company"]):
+        if job["url"] not in known_urls:
+            raw_jobs.append(job)
+            known_urls.add(job["url"])
+    print(f"Jobs scraped from ANOFM + jobRapid: {len(raw_jobs)}")
 
     jobs = [map_to_job_model(job, validated["cif"]) for job in raw_jobs]
     payload = {
-        "source": "mediere.anofm.ro",
+        "source": "mediere.anofm.ro, jobrapid.ro",
         "scrapedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "company": COMPANY_NAME,
         "cif": validated["cif"],
@@ -311,7 +441,7 @@ def main(root=None):
     print("\n=== Step 5: Summary ===")
     final_result = query_solr(COMPANY_CIF)
     print(f"Jobs existing in SOLR before scrape: {existing_count}")
-    print(f"Jobs scraped from ANOFM: {len(transformed['jobs'])}")
+    print(f"Jobs scraped from ANOFM + jobRapid: {len(transformed['jobs'])}")
     print(f"Stale jobs attempted: {len(stale_urls)}")
     print(f"Jobs in SOLR after scrape: {final_result['numFound']}")
 

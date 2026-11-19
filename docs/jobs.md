@@ -9,7 +9,7 @@
 | Career | https://mediere.anofm.ro/app/module/mediere/jobs |
 | LastScraped | 2026-11-19 |
 
-## Jobs (6)
+## Jobs (8)
 
 ### MUNCITOR NECALIFICAT LA ASAMBLAREA, MONTAREA PIESELOR
 
@@ -59,5 +59,17 @@
 - **Tags**: productie-logistica, pclm, cu-norma-intreaga, cu-durata-nedeterminata, sediu, profesional-scoala-profesionala, experienta-putina-mai-putin-de-3-ani
 - **Status**: scraped
 
+### Lacatus Mecanic
+
+- **URL**: [https://www.jobrapid.ro/locuri-de-munca/lacatus-mecanic-in-targu-jiu-1732980.html](https://www.jobrapid.ro/locuri-de-munca/lacatus-mecanic-in-targu-jiu-1732980.html)
+- **Location**: Târgu Jiu
+- **Status**: scraped
+
+### Sudor
+
+- **URL**: [https://www.jobrapid.ro/locuri-de-munca/sudor-in-targu-jiu-1732973.html](https://www.jobrapid.ro/locuri-de-munca/sudor-in-targu-jiu-1732973.html)
+- **Location**: Târgu Jiu
+- **Status**: scraped
+
 ---
-_Generated at 2026-11-19T10:22:10Z_
+_Generated at 2026-11-19T10:36:13Z_
