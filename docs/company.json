@@ -1,0 +1,10 @@
+{
+  "id": "41873878",
+  "company": "VARIANT AGRO S.R.L.",
+  "brand": "Variant Agro",
+  "status": "activ",
+  "location": ["Târgu Jiu"],
+  "website": [],
+  "career": ["https://mediere.anofm.ro/app/module/mediere/jobs"],
+  "scraperFile": "https://github.com/peviitor-scrapers/variant-agro-srl-python-scraper/actions/workflows/job-seeker-ro-spider.yml"
+}
