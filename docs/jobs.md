@@ -7,7 +7,7 @@
 | CIF | 41873878 |
 | Brand | Variant Agro |
 | Career | https://mediere.anofm.ro/app/module/mediere/jobs |
-| LastScraped | 2026-11-20 |
+| LastScraped | 2026-11-21 |
 
 ## Jobs (10)
 
@@ -84,4 +84,4 @@
 - **Status**: scraped
 
 ---
-_Generated at 2026-11-20T15:00:02Z_
+_Generated at 2026-11-21T14:21:50Z_
