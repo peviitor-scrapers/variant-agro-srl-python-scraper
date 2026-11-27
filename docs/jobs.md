@@ -7,17 +7,9 @@
 | CIF | 41873878 |
 | Brand | Variant Agro |
 | Career | https://mediere.anofm.ro/app/module/mediere/jobs |
-| LastScraped | 2026-11-26 |
+| LastScraped | 2026-11-27 |
 
-## Jobs (10)
-
-### MUNCITOR NECALIFICAT LA ASAMBLAREA, MONTAREA PIESELOR
-
-- **URL**: [https://mediere.anofm.ro/app/module/mediere/job/3451681](https://mediere.anofm.ro/app/module/mediere/job/3451681)
-- **Location**: TARGU JIU
-- **Work Mode**: on-site
-- **Tags**: altele, pclm, cu-norma-intreaga, cu-durata-nedeterminata, sediu, liceal-liceu-teoretic, experienta-putina-mai-putin-de-3-ani
-- **Status**: scraped
+## Jobs (9)
 
 ### LACATUS MECANIC
 
@@ -84,4 +76,4 @@
 - **Status**: scraped
 
 ---
-_Generated at 2026-11-26T16:32:16Z_
+_Generated at 2026-11-27T16:18:06Z_
