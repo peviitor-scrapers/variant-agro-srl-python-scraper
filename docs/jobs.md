@@ -7,9 +7,9 @@
 | CIF | 41873878 |
 | Brand | Variant Agro |
 | Career | https://mediere.anofm.ro/app/module/mediere/jobs |
-| LastScraped | 2026-11-27 |
+| LastScraped | 2026-11-28 |
 
-## Jobs (9)
+## Jobs (8)
 
 ### LACATUS MECANIC
 
@@ -51,12 +51,6 @@
 - **Tags**: productie-logistica, pclm, cu-norma-intreaga, cu-durata-nedeterminata, sediu, profesional-scoala-profesionala, experienta-putina-mai-putin-de-3-ani
 - **Status**: scraped
 
-### Muncitor Necalificat La Asamblarea, Montarea Pieselor
-
-- **URL**: [https://www.jobrapid.ro/locuri-de-munca/muncitor-necalificat-la-asamblarea-montarea-pieselor-in-targu-jiu-1734414.html](https://www.jobrapid.ro/locuri-de-munca/muncitor-necalificat-la-asamblarea-montarea-pieselor-in-targu-jiu-1734414.html)
-- **Location**: Târgu Jiu
-- **Status**: scraped
-
 ### Lacatus Mecanic
 
 - **URL**: [https://www.jobrapid.ro/locuri-de-munca/lacatus-mecanic-in-targu-jiu-1732980.html](https://www.jobrapid.ro/locuri-de-munca/lacatus-mecanic-in-targu-jiu-1732980.html)
@@ -76,4 +70,4 @@
 - **Status**: scraped
 
 ---
-_Generated at 2026-11-27T16:18:06Z_
+_Generated at 2026-11-28T15:11:49Z_
